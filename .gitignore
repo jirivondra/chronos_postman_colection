@@ -1,0 +1,8 @@
+# Soubory s citlivými údaji — nikdy do gitu!
+*.postman_globals.json
+*secrets*
+*credentials*
+.env
+
+# macOS
+.DS_Store
