@@ -20,14 +20,96 @@
       }
     ]
   },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const port = pm.environment.get('port');",
+          "const baseUrl = port",
+          "    ? `${pm.environment.get('protocol')}://${pm.environment.get('host')}:${port}`",
+          "    : `${pm.environment.get('protocol')}://${pm.environment.get('host')}`;",
+          "pm.environment.set('base_url', baseUrl);"
+        ]
+      }
+    }
+  ],
   "variable": [
     {
       "key": "todo_id",
       "value": "",
       "description": "ID posledního vytvořeného úkolu — nastavuje se automaticky po Create Todo"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "description": "JWT token — nastavuje se automaticky po Login"
+    },
+    {
+      "key": "next_cursor",
+      "value": "",
+      "description": "Cursor pro další stránku výsledků — nastavuje se automaticky z Get All Todos"
     }
   ],
   "item": [
+    {
+      "name": "Auth",
+      "description": "Autentizační requesty. Aktuální API používá Basic Auth — tato složka slouží jako šablona pro JWT pattern.\n\nJakmile API bude podporovat JWT login, stačí doplnit endpoint a název pole s tokenem v response.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Přihlásí uživatele a uloží JWT token do proměnné `auth_token`. Ostatní requesty token použijí automaticky.\n\n> Šablona pro JWT API — aktuální Todo App používá Basic Auth, tento endpoint neexistuje."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status je 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Odpověď obsahuje access_token', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('access_token');",
+                  "    // Uloží token — ostatní requesty ho použijí automaticky v Authorization headeru",
+                  "    pm.collectionVariables.set('auth_token', body.access_token);",
+                  "    console.log('Token uložen:', body.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "Todos",
       "description": "CRUD operace pro správu úkolů",
@@ -42,7 +124,7 @@
               "host": ["{{base_url}}"],
               "path": ["todos"]
             },
-            "description": "Vrátí seznam všech úkolů."
+            "description": "Vrátí seznam všech úkolů. Pokud API vrátí pagination cursor, uloží se automaticky do `next_cursor`."
           },
           "event": [
             {
@@ -71,7 +153,72 @@
                   "pm.test('Content-Type je application/json', function () {",
                   "    pm.response.to.have.header('Content-Type');",
                   "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
-                  "});"
+                  "});",
+                  "",
+                  "// Pagination pattern — uloží cursor pro další stránku, pokud API paginaci podporuje.",
+                  "// Aktuální API paginaci nemá, script je připraven pro budoucí rozšíření.",
+                  "const body = pm.response.json();",
+                  "const cursor = body.next_cursor || body.next || null;",
+                  "if (cursor) {",
+                  "    pm.collectionVariables.set('next_cursor', cursor);",
+                  "    console.log('Další stránka dostupná, cursor:', cursor);",
+                  "} else {",
+                  "    pm.collectionVariables.unset('next_cursor');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Next Page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/todos?cursor={{next_cursor}}",
+              "host": ["{{base_url}}"],
+              "path": ["todos"],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "{{next_cursor}}"
+                }
+              ]
+            },
+            "description": "Načte další stránku výsledků pomocí cursoru z předchozího volání.\n\n> Šablona pro paginaci — aktuální API paginaci nepodporuje. Spusť až po `Get All Todos`, kdy `next_cursor` není prázdný."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Přeruší request pokud cursor není nastaven",
+                  "if (!pm.collectionVariables.get('next_cursor')) {",
+                  "    throw new Error('next_cursor není nastaven — nejprve spusť Get All Todos');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status je 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Aktualizuje cursor pro případnou další stránku",
+                  "const body = pm.response.json();",
+                  "const cursor = body.next_cursor || body.next || null;",
+                  "if (cursor) {",
+                  "    pm.collectionVariables.set('next_cursor', cursor);",
+                  "} else {",
+                  "    pm.collectionVariables.unset('next_cursor');",
+                  "    console.log('Poslední stránka výsledků');",
+                  "}"
                 ]
               }
             }
@@ -101,7 +248,7 @@
               "host": ["{{base_url}}"],
               "path": ["todos"]
             },
-            "description": "Vytvoří nový úkol. ID se automaticky uloží do kolekční proměnné `todo_id`."
+            "description": "Vytvoří nový úkol. ID se automaticky uloží do kolekční proměnné `todo_id`, kterou pak použijí Get, Update a Delete."
           },
           "event": [
             {
@@ -117,7 +264,7 @@
                   "    const body = pm.response.json();",
                   "    pm.expect(body).to.have.property('id');",
                   "    pm.expect(body.id).to.be.a('number');",
-                  "    // Uloží ID pro použití v dalších requestech",
+                  "    // Uloží ID pro Get Todo by ID, Update Todo a Delete Todo",
                   "    pm.collectionVariables.set('todo_id', body.id);",
                   "    console.log('Vytvořen todo s ID:', body.id);",
                   "});",
@@ -147,9 +294,21 @@
               "host": ["{{base_url}}"],
               "path": ["todos", "{{todo_id}}"]
             },
-            "description": "Vrátí detail konkrétního úkolu. Používá `todo_id` nastavenou po Create Todo."
+            "description": "Vrátí detail konkrétního úkolu. Používá `todo_id` uloženou po Create Todo."
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Přeruší request pokud todo_id není nastaven",
+                  "if (!pm.collectionVariables.get('todo_id')) {",
+                  "    throw new Error('todo_id není nastaven — nejprve spusť Create Todo');",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -202,6 +361,17 @@
           },
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('todo_id')) {",
+                  "    throw new Error('todo_id není nastaven — nejprve spusť Create Todo');",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -239,6 +409,17 @@
           },
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('todo_id')) {",
+                  "    throw new Error('todo_id není nastaven — nejprve spusť Create Todo');",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -251,7 +432,6 @@
                   "    pm.expect(pm.response.text()).to.be.empty;",
                   "});",
                   "",
-                  "// Smaž proměnnou todo_id, protože úkol už neexistuje",
                   "pm.collectionVariables.unset('todo_id');"
                 ]
               }
@@ -262,7 +442,7 @@
     },
     {
       "name": "Edge Cases",
-      "description": "Testy pro chybové stavy a hraniční případy — důležité pro pohovor!",
+      "description": "Testy pro chybové stavy a hraniční případy",
       "item": [
         {
           "name": "Get Non-Existent Todo (404)",
