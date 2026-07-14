@@ -181,7 +181,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"{{$randomLoremWords}}\",\n  \"description\": \"Created via Postman collection\",\n  \"completed\": false\n}",
+              "raw": "{\n  \"title\": \"{{$randomLoremWords}}\",\n  \"description\": \"Created via Postman collection\",\n  \"completed\": false,\n  \"due_date\": \"2026-07-20\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -310,7 +310,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"completed\": true,\n  \"description\": \"Updated via Postman\"\n}",
+              "raw": "{\n  \"completed\": true,\n  \"description\": \"Updated via Postman\",\n  \"due_date\": \"2026-08-01\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
