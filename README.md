@@ -23,7 +23,7 @@ sync-manifest.json                   ← maps each endpoint key to the request n
 
 To use these collections and get relevant API responses, you need to have the application running locally.
 
-Clone and set up the application from the [todo_app repository](https://github.com/jirivondra/todo_app) and follow the instructions in its [README](https://github.com/jirivondra/todo_app#readme).
+Clone and set up the application from the [Chronost_App repository](https://github.com/jirivondra/Chronost_App) and follow the instructions in its [README](https://github.com/jirivondra/Chronost_App#readme).
 
 ## How to Import the Collections
 
