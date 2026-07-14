@@ -44,9 +44,29 @@ Clone and set up the application from the [todo_app repository](https://github.c
 
 ## How to Update the Collections
 
-**Method, URL and path changes are automated.** Whenever `api/main.py` changes in [Chronost_App](https://github.com/jirivondra/todo_app), a workflow there regenerates the request shapes from the OpenAPI spec and opens a PR here with the update. The PR body lists any endpoint that's newly added (not yet wired to a request via `sync-manifest.json`) or missing a test script — review and merge it like any other PR. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the full flow diagram.
+**Method, URL and path changes are automated.** Whenever `api/main.py` changes in [Chronost_App](https://github.com/jirivondra/Chronost_App), a workflow there regenerates the request shapes from the OpenAPI spec and opens a PR here with the update. The PR body lists any endpoint that's newly added (not yet wired to a request via `sync-manifest.json`) or missing a test script — review and merge it like any other PR.
 
-The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` (e.g. the `Errors` folder, or scenario requests like `Get Next Page`) — those stay fully hand-maintained.
+```mermaid
+sequenceDiagram
+    actor Dev as Developer
+    participant App as Chronost_App (main)
+    participant CI as postman-sync workflow
+    participant Repo as chronos_postman_colection
+    actor Rev as Reviewer
+
+    Dev->>App: Merge PR touching api/main.py
+    App->>CI: Trigger (push to main, paths: api/main.py)
+    CI->>CI: export_openapi.py -> openapi.json
+    CI->>CI: generate.js -> one skeleton file per endpoint
+    CI->>Repo: Checkout (scripts/, sync-manifest.json, collections/*.json)
+    CI->>CI: compose.js (skeletons + scripts + manifest -> new collection.json)
+    CI->>CI: check-missing-scripts.js -> checklist
+    CI->>Repo: Open PR (branch sync/openapi-update)
+    Repo-->>Rev: PR with updated collection + checklist
+    Rev->>Repo: Review & merge (or add missing scripts/manifest entries first)
+```
+
+The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` (e.g. the `Errors` folder, or scenario requests like `Get Next Page`) — those stay fully hand-maintained. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the pipeline implementation details.
 
 To change a script:
 
