@@ -44,7 +44,7 @@ Clone and set up the application from the [todo_app repository](https://github.c
 
 ## How to Update the Collections
 
-**Method, URL and path changes are automated.** Whenever `api/main.py` changes in [Chronost_App](https://github.com/jirivondra/Chronost_App), a workflow there regenerates the request shapes from the OpenAPI spec, runs the resulting collection with `newman` against a live local instance of the API, and opens a PR here with the update. The PR body lists any endpoint that's newly added (not yet wired to a request via `sync-manifest.json`), missing a test script, or whose example `body` fields have drifted from the spec (missing a new field, or still sending one that's gone) — plus a pass/fail summary from the live collection run. Review and merge it like any other PR.
+**Method, URL and path changes are automated — including brand-new endpoints.** Whenever `api/main.py` changes in [Chronost_App](https://github.com/jirivondra/Chronost_App), a workflow there regenerates the request shapes from the OpenAPI spec, automatically creates a request + a minimal status-code test for any endpoint that isn't wired up yet, runs the resulting collection with `newman` against a live local instance of the API, and opens a PR here with the update. The PR body lists any newly auto-created endpoint, any request missing a test script, or whose example `body` fields have drifted from the spec (missing a new field, or still sending one that's gone) — plus a pass/fail summary from the live collection run. Review and merge it like any other PR.
 
 ```mermaid
 sequenceDiagram
@@ -58,14 +58,15 @@ sequenceDiagram
     App->>CI: Trigger (push to main, paths: api/main.py)
     CI->>CI: export_openapi.py -> openapi.json
     CI->>CI: validate_examples.py (Pydantic model examples still valid)
-    CI->>CI: generate.js -> one skeleton file per endpoint
+    CI->>CI: generate.js -> one skeleton file per endpoint (+ success status code)
     CI->>Repo: Checkout (scripts/, sync-manifest.json, collections/*.json)
+    CI->>CI: auto-wire.js -> new request + scripts/<key>.js + manifest entry for any brand-new endpoint
     CI->>CI: compose.js (skeletons + scripts + manifest -> new collection.json)
     CI->>CI: check-missing-scripts.js -> checklist
     CI->>CI: start API locally, run newman against the composed collection
-    CI->>Repo: Open PR (branch sync/openapi-update, body = checklist + run summary)
-    Repo-->>Rev: PR with updated collection + checklist + run results
-    Rev->>Repo: Review & merge (or add missing scripts/manifest entries first)
+    CI->>Repo: Open PR (branch sync/openapi-update, body = auto-wired list + checklist + run summary)
+    Repo-->>Rev: PR with updated collection + auto-created requests + checklist + run results
+    Rev->>Repo: Review & merge (or expand test coverage for newly auto-wired endpoints first)
 ```
 
 If the live collection run fails, the PR still opens (diff stays visible), but the Chronost_App workflow run itself is marked failed so it isn't missed.
@@ -83,11 +84,11 @@ To change a script:
 1. Edit the matching file in `scripts/<method>_<path>.js` (e.g. `scripts/get_todos_id.js`), exporting `prerequest` and/or `test` as template-literal strings
 2. Commit and push — the next sync PR will pick it up
 
-To add a request for a brand-new endpoint:
+A brand-new endpoint needs no manual setup — the moment it appears in the spec, the sync PR already includes a new request (with a realistic example body) and a basic status-code test in `scripts/<key>.js`, wired up in `sync-manifest.json`. After merging that PR:
 
-1. Create the request by hand in Postman, export, and commit it as usual (see below)
-2. Add an entry to `sync-manifest.json` mapping the endpoint key to the request's name
-3. Optionally add `scripts/<key>.js` for its test script
+1. Move the auto-created request to a different folder if `Todos` isn't the right place for it
+2. Expand `scripts/<key>.js` beyond the basic status-code check, if useful
+3. From then on it stays in sync automatically, exactly like every other endpoint
 
 Everything else not covered by the automated sync (environment values, new folders, error-scenario requests) is still exported and committed manually:
 
