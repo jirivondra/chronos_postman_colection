@@ -72,6 +72,12 @@ If the live collection run fails, the PR still opens (diff stays visible), but t
 
 The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` (e.g. the `Errors` folder, or scenario requests like `Get Next Page`) — those stay fully hand-maintained. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the pipeline implementation details.
 
+**Always manually review a sync PR before merging it, even when the checklist says "nothing to review."** The checklist only catches endpoints with no request or no script wired up — it doesn't verify the request still behaves correctly. Before merging:
+
+1. Check the diff — confirm the changed method/URL actually matches the intended API change
+2. Run the collection (Collection Runner) against a local instance of the API and confirm the requests and their tests still pass
+3. If the API change added/removed a field, update the request `body` by hand — the sync deliberately never touches it
+
 To change a script:
 
 1. Edit the matching file in `scripts/<method>_<path>.js` (e.g. `scripts/get_todos_id.js`), exporting `prerequest` and/or `test` as template-literal strings
