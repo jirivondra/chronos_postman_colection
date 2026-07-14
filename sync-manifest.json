@@ -1,0 +1,7 @@
+{
+  "get_todos": "Get All Todos",
+  "post_todos": "Create Todo",
+  "get_todos_id": "Get Todo by ID",
+  "put_todos_id": "Update Todo",
+  "delete_todos_id": "Delete Todo"
+}
