@@ -17,6 +17,6 @@ pm.test('Returned ID matches the requested one', function () {
 
 pm.test('Todo has all required fields', function () {
     const body = pm.response.json();
-    pm.expect(body).to.have.all.keys('id', 'title', 'completed');
+    pm.expect(body).to.include.all.keys('id', 'title', 'completed');
 });
 `

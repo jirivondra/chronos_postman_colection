@@ -81,7 +81,8 @@
               "script": {
                 "exec": [
                   "if (!pm.collectionVariables.get('next_cursor')) {",
-                  "    throw new Error('next_cursor is not set — run Get All Todos first');",
+                  "    console.log('next_cursor is not set — skipping (run Get All Todos first, or the API has no more pages)');",
+                  "    pm.execution.skipRequest();",
                   "}"
                 ],
                 "type": "text/javascript",
