@@ -15,9 +15,12 @@ collections/
 environments/
   local.postman_environment.json     ← local environment (localhost:8000)
 scripts/
+  package.json                       ← {"type": "module"}, so Chronost_App's CI can import these as ES modules
   <method>_<path>.js                 ← hand-written pre-request/test scripts, one file per endpoint
 sync-manifest.json                   ← maps each endpoint key to the request name it syncs into
 ```
+
+Nothing in this repository itself needs Node.js to run — `scripts/package.json` only exists so the Node.js tooling in [Chronost_App](https://github.com/jirivondra/Chronost_App)'s CI (see its `postman-sync/README.md`) can load these `.js` files correctly.
 
 ## Prerequisites — Running the Application Locally
 
