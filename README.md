@@ -44,7 +44,7 @@ Clone and set up the application from the [todo_app repository](https://github.c
 
 ## How to Update the Collections
 
-**Method, URL and path changes are automated.** Whenever `api/main.py` changes in [Chronost_App](https://github.com/jirivondra/Chronost_App), a workflow there regenerates the request shapes from the OpenAPI spec and opens a PR here with the update. The PR body lists any endpoint that's newly added (not yet wired to a request via `sync-manifest.json`) or missing a test script — review and merge it like any other PR.
+**Method, URL and path changes are automated.** Whenever `api/main.py` changes in [Chronost_App](https://github.com/jirivondra/Chronost_App), a workflow there regenerates the request shapes from the OpenAPI spec and opens a PR here with the update. The PR body lists any endpoint that's newly added (not yet wired to a request via `sync-manifest.json`), missing a test script, or whose example `body` fields have drifted from the spec (missing a new field, or still sending one that's gone) — review and merge it like any other PR.
 
 ```mermaid
 sequenceDiagram
