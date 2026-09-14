@@ -453,6 +453,46 @@
             "description": "Deletes a todo by ID. Returns 204 with no response body."
           },
           "response": []
+        },
+        {
+          "id": "5d4c3236-f461-4d06-8c66-4c8281073daa",
+          "name": "Get overdue TODOs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{protocol}}{{host}}{{port}}/todos/overdue",
+              "host": [
+                "{{protocol}}{{host}}{{port}}"
+              ],
+              "path": [
+                "todos",
+                "overdue"
+              ]
+            },
+            "description": {}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ]
         }
       ],
       "description": "CRUD operations for managing todos"
