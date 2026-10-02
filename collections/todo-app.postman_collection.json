@@ -67,6 +67,13 @@
               ],
               "path": [
                 "todos"
+              ],
+              "query": [
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "disabled": true
+                }
               ]
             },
             "description": "Returns a list of all todos. If the API returns a pagination cursor, it is automatically saved to `next_cursor`."
