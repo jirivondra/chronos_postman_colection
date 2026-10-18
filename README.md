@@ -71,7 +71,7 @@ sequenceDiagram
 
 If the live collection run fails, the PR still opens (diff stays visible), but the Chronost_App workflow run itself is marked failed so it isn't missed.
 
-The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` (e.g. the `Errors` folder) — those stay fully hand-maintained. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the pipeline implementation details.
+The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` — but the collection run fails on any such request (see [Scripts](#scripts)), so in practice every request is mapped to an endpoint. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the pipeline implementation details.
 
 **Always manually review a sync PR before merging it, even when the checklist says "nothing to review."** The checklist only catches endpoints with no request or no script wired up — it doesn't verify the request still behaves correctly. Before merging:
 
@@ -90,7 +90,7 @@ A brand-new endpoint needs no manual setup — the moment it appears in the spec
 2. Delete the generated status-code test from `scripts/<key>.js` (see [Scripts](#scripts) — this collection holds no tests). Keep the file only if the endpoint produces a value other requests should reuse; the sync checklist will then list the endpoint as having no script, which is expected
 3. From then on it stays in sync automatically, exactly like every other endpoint
 
-Everything else not covered by the automated sync (environment values, new folders, error-scenario requests) is still exported and committed manually:
+Everything else not covered by the automated sync (environment values, request bodies) is still exported and committed manually:
 
 1. Make your changes in Postman
 2. Right-click the collection → **Export JSON** → save over `collections/todo-app.postman_collection.json`
@@ -142,7 +142,9 @@ Notes:
 
 ## Scripts
 
-This collection is for **manual calls only**. Its scripts do exactly one thing: **pass values from one request to the next** (see [Request Chaining](#request-chaining)). There are no `pm.test` assertions anywhere — not even status codes, and not in the `Errors` folder.
+This collection is for **manual calls only**. Its scripts do exactly one thing: **pass values from one request to the next** (see [Request Chaining](#request-chaining)). There are no `pm.test` assertions anywhere — not even status codes.
+
+It also holds **only successful calls**, one per endpoint: open a request, click **Send**, get a working response. Error cases (`401`, `404`, `422`, …) are test scenarios, not something to call by hand — they're covered by the Mocha suite, so don't add them here.
 
 API testing (status codes, response shape, field values, schemas, negative scenarios) lives in [chronos_mocha_rest_soap_testing](https://github.com/jirivondra/chronos_mocha_rest_soap_testing) (Mocha) and must not be duplicated here.
 
@@ -156,8 +158,8 @@ Two separate test runs in [Chronost_App](https://github.com/jirivondra/Chronost_
 | --- | --- | --- |
 | Question it answers | "Is **this Postman collection** usable?" | "Does **the API** work correctly?" |
 | What it runs | The requests stored in `collections/todo-app.postman_collection.json` | Its own requests, written in TypeScript in [chronos_mocha_rest_soap_testing](https://github.com/jirivondra/chronos_mocha_rest_soap_testing) (`npm run test:regression`) |
-| Catches | Wrong **HTTP status code** for any request in the collection (e.g. a broken URL after a sync), a crashing script, a broken `todo_id` chain | Wrong status codes (incl. 401/404/422), wrong response shape (JSON Schema via `expectJsonSchema`), broken filters/pagination |
-| Misses | Response content and shape, error cases not in the `Errors` folder — it only checks status codes | Anything broken in the Postman collection — it never uses it |
+| Catches | A request in the collection not returning its **success status code** (e.g. a broken URL after a sync), a non-JSON response, a crashing script, a broken `todo_id` chain | Wrong status codes (incl. 401/404/422), wrong response shape (JSON Schema via `expectJsonSchema`), broken filters/pagination |
+| Misses | Response content and shape, every error case — it only calls each endpoint once, successfully | Anything broken in the Postman collection — it never uses it |
 
 Examples:
 
@@ -170,10 +172,16 @@ In short: newman tests the **tool**, Mocha tests the **product**.
 
 The collection holds no `pm.test` assertions. Newman records every request's actual status code in its JSON report anyway, and the sync pipeline's `summarize-newman.js` (in Chronost_App) compares it with the expected one:
 
-- requests listed in `sync-manifest.json` → the success code declared in the OpenAPI spec (`201` for Create, `204` for Delete, `200` otherwise)
-- hand-maintained requests → the `(NNN)` suffix of their name, e.g. `Get Non-Existent Todo (404)`. **Keep that suffix when adding a request to the `Errors` folder**, otherwise it's listed as "not checked".
+- each request's expected code is the success code the OpenAPI spec declares for the endpoint it's mapped to in `sync-manifest.json` (`201` for Create, `204` for Delete, `200` otherwise)
+- a request not mapped to any endpoint fails the run — it doesn't belong in this collection
+- every response with a body must be JSON, and no `{{variable}}` may be left unresolved in a sent request (a broken chain)
 
-Script errors and requests with no response count as failures too. The result is the **"Collection run"** section of every sync PR: its heading says `✅ passed` or `❌ N failed`, followed by a per-request table (expected vs. actual code).
+Script errors and requests with no response count as failures too. The result shows up as:
+
+- a **failing check** on every Chronost_App pull request that touches `api/main.py` or the sync pipeline (runs against the collection on `main` here), with the per-request table in the run's summary
+- the **"Collection run"** section of every sync PR here: its heading says `✅ passed` or `❌ N failed`, and the PR title starts with `❌` when it failed
+
+Either way, the Mocha REST regression runs right after it.
 
 > **Before merging a sync PR, check that heading.** A failed run marks the workflow red in **Chronost_App**'s Actions, but the sync PR here doesn't get a failing check. From 2026-09-14 to 2026-10-18 crashing scripts went unnoticed this way, and sync PR #13 was merged with them, partly because the old summary read "0 failed".
 
