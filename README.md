@@ -71,7 +71,7 @@ sequenceDiagram
 
 If the live collection run fails, the PR still opens (diff stays visible), but the Chronost_App workflow run itself is marked failed so it isn't missed.
 
-The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` (e.g. the `Errors` folder, or scenario requests like `Get Next Page`) — those stay fully hand-maintained. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the pipeline implementation details.
+The sync never touches `header`, `body`, or the request's test/pre-request scripts, and it never touches folders or requests that aren't listed in `sync-manifest.json` (e.g. the `Errors` folder) — those stay fully hand-maintained. See [`postman-sync/README.md`](https://github.com/jirivondra/Chronost_App/blob/main/postman-sync/README.md) in Chronost_App for the pipeline implementation details.
 
 **Always manually review a sync PR before merging it, even when the checklist says "nothing to review."** The checklist only catches endpoints with no request or no script wired up — it doesn't verify the request still behaves correctly. Before merging:
 
@@ -125,7 +125,6 @@ Default credentials for the local environment: `admin` / `secret`
 |----------|--------|-----|---------|
 | `due_date` | `Create Todo` (pre-request) | today + 7 days, `YYYY-MM-DD` | `Create Todo` body, `Update Todo` body |
 | `todo_id` | `Create Todo` (post-response) | `id` of the todo just created | URL of `Get Todo by ID`, `Update Todo`, `Delete Todo` |
-| `next_cursor` | `Get All Todos`, `Get Next Page` (post-response) | `next_cursor` / `next` from the response, if present | `cursor` param of `Get Next Page` |
 
 Typical manual flow:
 
@@ -140,12 +139,6 @@ Notes:
 - To check the current value of a variable, hover over `{{todo_id}}` in the URL, or open the collection's **Variables** tab.
 - `due_date` is generated with `moment`, which is built into the Postman sandbox. `dayjs` isn't, and `pm.require('npm:...')` doesn't work in `newman` (which the sync pipeline uses), so don't switch to it.
 - A due date of +7 days falls inside the Dashboard's "Upcoming" window (today … today + 7). Delete todos you no longer need, so they don't skew the Playwright Dashboard tests running against the same backend.
-
-## Query Parameters Without Example Data
-
-Some query parameters (e.g. `cursor` on `Get Next Page`) only get a real value at runtime, from a previous request or a script — there's no static example to fill in when the request is authored. For these, add the parameter to the request but leave it **disabled** (unchecked) rather than enabled with an unresolved `{{variable}}`.
-
-This keeps the parameter discoverable in the Params tab and out of the request's raw URL, instead of showing up as a broken/red variable reference before the collection has been run. Once the variable that feeds it is actually set (e.g. after running `Get All Todos`), re-enable the parameter manually to use it.
 
 ## Scripts
 

@@ -12,26 +12,6 @@
       "item": [
         {
           "name": "Get All Todos",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "// Saves the cursor for Get Next Page, if the response provides one.",
-                  "const body = pm.response.json();",
-                  "const cursor = body.next_cursor || body.next || null;",
-                  "if (cursor) {",
-                  "    pm.collectionVariables.set('next_cursor', cursor);",
-                  "} else {",
-                  "    pm.collectionVariables.unset('next_cursor');",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -51,65 +31,7 @@
                 }
               ]
             },
-            "description": "Returns a list of all todos. If the API returns a pagination cursor, it is automatically saved to `next_cursor`."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Next Page",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "if (!pm.collectionVariables.get('next_cursor')) {",
-                  "    pm.execution.skipRequest();",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "// Saves the cursor for the following page, if the response provides one.",
-                  "const body = pm.response.json();",
-                  "const cursor = body.next_cursor || body.next || null;",
-                  "if (cursor) {",
-                  "    pm.collectionVariables.set('next_cursor', cursor);",
-                  "} else {",
-                  "    pm.collectionVariables.unset('next_cursor');",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{protocol}}{{host}}{{port}}/todos",
-              "host": [
-                "{{protocol}}{{host}}{{port}}"
-              ],
-              "path": [
-                "todos"
-              ],
-              "query": [
-                {
-                  "key": "cursor",
-                  "value": "{{next_cursor}}",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Loads the next page of results using the cursor from the previous call.\n\n> Pagination template — the current API does not support pagination. Run after `Get All Todos` when `next_cursor` is not empty."
+            "description": "Returns a list of all todos. Optional query params: `order` (`asc`/`desc`), `completed`, and `page` + `limit` for pagination."
           },
           "response": []
         },
@@ -120,8 +42,6 @@
               "listen": "prerequest",
               "script": {
                 "exec": [
-                  "// due_date = today + 7 days (YYYY-MM-DD), reused by Create Todo and Update Todo bodies.",
-                  "// moment is built into the Postman sandbox (dayjs is not, and pm.require doesn't work in newman).",
                   "const moment = require('moment');",
                   "pm.collectionVariables.set('due_date', moment().add(7, 'days').format('YYYY-MM-DD'));"
                 ],
@@ -134,7 +54,6 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "// Saves the new todo's ID — Get Todo by ID, Update Todo and Delete Todo read it via {{todo_id}} in their URL.",
                   "const body = pm.response.json();",
                   "pm.collectionVariables.set('todo_id', body.id);"
                 ],
