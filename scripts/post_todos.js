@@ -8,8 +8,5 @@ pm.collectionVariables.set('due_date', moment().add(7, 'days').format('YYYY-MM-D
 export const test = `
 // Saves the new todo's ID — Get Todo by ID, Update Todo and Delete Todo read it via {{todo_id}} in their URL.
 const body = pm.response.json();
-if (typeof body.id === 'number') {
-    pm.collectionVariables.set('todo_id', body.id);
-    console.log('Todo created with ID:', body.id);
-}
+pm.collectionVariables.set('todo_id', body.id);
 `

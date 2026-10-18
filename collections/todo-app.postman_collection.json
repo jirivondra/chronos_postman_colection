@@ -22,7 +22,6 @@
                   "const cursor = body.next_cursor || body.next || null;",
                   "if (cursor) {",
                   "    pm.collectionVariables.set('next_cursor', cursor);",
-                  "    console.log('Next page available, cursor:', cursor);",
                   "} else {",
                   "    pm.collectionVariables.unset('next_cursor');",
                   "}"
@@ -64,7 +63,6 @@
               "script": {
                 "exec": [
                   "if (!pm.collectionVariables.get('next_cursor')) {",
-                  "    console.log('next_cursor is not set — skipping (run Get All Todos first, or the API has no more pages)');",
                   "    pm.execution.skipRequest();",
                   "}"
                 ],
@@ -84,7 +82,6 @@
                   "    pm.collectionVariables.set('next_cursor', cursor);",
                   "} else {",
                   "    pm.collectionVariables.unset('next_cursor');",
-                  "    console.log('Last page of results');",
                   "}"
                 ],
                 "type": "text/javascript",
@@ -139,10 +136,7 @@
                 "exec": [
                   "// Saves the new todo's ID — Get Todo by ID, Update Todo and Delete Todo read it via {{todo_id}} in their URL.",
                   "const body = pm.response.json();",
-                  "if (typeof body.id === 'number') {",
-                  "    pm.collectionVariables.set('todo_id', body.id);",
-                  "    console.log('Todo created with ID:', body.id);",
-                  "}"
+                  "pm.collectionVariables.set('todo_id', body.id);"
                 ],
                 "type": "text/javascript",
                 "packages": {},
