@@ -126,6 +126,12 @@ The collection is designed to be run in the following order:
 3. **Update Todo** → uses `todo_id`
 4. **Delete Todo** → uses `todo_id` and then clears it
 
+## Query Parameters Without Example Data
+
+Some query parameters (e.g. `cursor` on `Get Next Page`) only get a real value at runtime, from a previous request or a script — there's no static example to fill in when the request is authored. For these, add the parameter to the request but leave it **disabled** (unchecked) rather than enabled with an unresolved `{{variable}}`.
+
+This keeps the parameter discoverable in the Params tab and out of the request's raw URL, instead of showing up as a broken/red variable reference before the collection has been run. Once the variable that feeds it is actually set (e.g. after running `Get All Todos`), re-enable the parameter manually to use it.
+
 ## Tests
 
 Each request includes automated tests (the **Tests** tab in Postman):

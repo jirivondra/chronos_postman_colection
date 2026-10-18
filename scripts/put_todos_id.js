@@ -1,5 +1,7 @@
 export const prerequest = `
 if (!pm.collectionVariables.get('todo_id')) {
+    const daysAhead = Math.floor(Math.random() * 30) + 1;
+    const dueDate = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const res = await pm.sendRequest({
         url: pm.variables.replaceIn('{{protocol}}{{host}}{{port}}/todos'),
         method: 'POST',
@@ -17,7 +19,7 @@ if (!pm.collectionVariables.get('todo_id')) {
                 title: 'Auto-created todo',
                 description: 'Auto-created by pre-request script',
                 completed: false,
-                due_date: '2026-12-31'
+                due_date: dueDate
             })
         }
     });
