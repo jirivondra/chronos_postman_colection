@@ -34,9 +34,5 @@ pm.test('Status is 204 No Content', function () {
     pm.response.to.have.status(204);
 });
 
-pm.test('Response body is empty', function () {
-    pm.expect(pm.response.text()).to.be.empty;
-});
-
 pm.collectionVariables.unset('todo_id');
 `

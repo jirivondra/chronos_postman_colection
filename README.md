@@ -134,17 +134,18 @@ This keeps the parameter discoverable in the Params tab and out of the request's
 
 ## Tests
 
-Each request includes automated tests (the **Tests** tab in Postman):
-- HTTP status code verification
-- Response body structure validation
-- Data type checks
+The scripts in this collection are **not** API tests — those live in [Chronos_App_Api_Testing](https://github.com/jirivondra/Chronos_App_Api_Testing) (Mocha). Response shape, field values, headers and negative scenarios are covered there and must not be duplicated here.
 
-The **Errors** folder tests error states:
-- `404` for a non-existent ID
-- `422` for a missing required field
-- `401` for missing authentication
+The scripts here only check that the **collection itself is usable** — which is exactly what the `newman` run in the sync pipeline verifies after every regeneration:
 
-To run all tests at once, use the **Collection Runner** (the ▶ button next to the collection).
+- the expected HTTP status code (the request's URL, method, auth and body are still correct)
+- whatever the request chain depends on: `Create Todo` returns a numeric `id` and saves it as `todo_id`; `Get Todo by ID` / `Update Todo` return that same `id`
+
+The **Errors** folder keeps its status checks for the same reason — it verifies those hand-built error requests still trigger the intended `404` / `422` / `401`.
+
+When adding a script, ask: "would this request become unusable for manual testing if the check failed?" If not, the check belongs in the Mocha repository instead.
+
+To run the whole collection at once, use the **Collection Runner** (the ▶ button next to the collection).
 
 ## Using with Other Tools
 

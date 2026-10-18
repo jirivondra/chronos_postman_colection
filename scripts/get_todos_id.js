@@ -39,9 +39,4 @@ pm.test('Returned ID matches the requested one', function () {
     const expectedId = parseInt(pm.collectionVariables.get('todo_id'));
     pm.expect(body.id).to.equal(expectedId);
 });
-
-pm.test('Todo has all required fields', function () {
-    const body = pm.response.json();
-    pm.expect(body).to.include.all.keys('id', 'title', 'completed');
-});
 `
