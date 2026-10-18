@@ -156,20 +156,26 @@ Two separate test runs in [Chronost_App](https://github.com/jirivondra/Chronost_
 | --- | --- | --- |
 | Question it answers | "Is **this Postman collection** usable?" | "Does **the API** work correctly?" |
 | What it runs | The requests stored in `collections/todo-app.postman_collection.json` | Its own requests, written in TypeScript in [chronos_mocha_rest_soap_testing](https://github.com/jirivondra/chronos_mocha_rest_soap_testing) (`npm run test:regression`) |
-| Catches | Broken URL/body in the collection, a crashing script, a broken `todo_id` chain | Wrong status codes (incl. 401/404/422), wrong response shape (JSON Schema via `expectJsonSchema`), broken filters/pagination |
-| Misses | API bugs — it has no assertions, so it doesn't check **HTTP status codes** or response content | Anything broken in the Postman collection — it never uses it |
+| Catches | Wrong **HTTP status code** for any request in the collection (e.g. a broken URL after a sync), a crashing script, a broken `todo_id` chain | Wrong status codes (incl. 401/404/422), wrong response shape (JSON Schema via `expectJsonSchema`), broken filters/pagination |
+| Misses | Response content and shape, error cases not in the `Errors` folder — it only checks status codes | Anything broken in the Postman collection — it never uses it |
 
 Examples:
 
-- **API breaks** (e.g. `POST /todos` starts returning `500`) → Mocha fails. Newman still passes: the request was sent and the script ran.
+- **API breaks in its responses** (e.g. `GET /todos/{id}` drops the `title` field) → Mocha fails (JSON Schema). Newman still passes: the status code is still `200`.
 - **Collection breaks** (e.g. a pre-request script crashes in newman, as `await` did in the old auto-create scripts) → Newman fails. Mocha still passes: the API itself is fine.
 
 In short: newman tests the **tool**, Mocha tests the **product**.
 
-> **Known gaps in the newman run:**
->
-> - **No HTTP status checks.** Since this collection has no `pm.test` assertions, a request returning `404`/`500` (e.g. due to a wrong URL after a sync) does not fail the run — only script errors and connection problems do. Planned fix: compare newman's reported status codes against the OpenAPI spec in Chronost_App's `summarize-newman.js`.
-> - **Failures are easy to miss.** A failed run marks the workflow red in **Chronost_App**'s Actions, but the sync PR here shows no failing check — only a "Collection run" section in its body, whose first line counts *assertion* failures only (it said "0 failed" while listing three crashing scripts). Read the whole section, not just the first line, before merging. This went unnoticed from 2026-09-14 until 2026-10-18 and sync PR #13 was merged with it.
+### How newman checks status codes without tests in the collection
+
+The collection holds no `pm.test` assertions. Newman records every request's actual status code in its JSON report anyway, and the sync pipeline's `summarize-newman.js` (in Chronost_App) compares it with the expected one:
+
+- requests listed in `sync-manifest.json` → the success code declared in the OpenAPI spec (`201` for Create, `204` for Delete, `200` otherwise)
+- hand-maintained requests → the `(NNN)` suffix of their name, e.g. `Get Non-Existent Todo (404)`. **Keep that suffix when adding a request to the `Errors` folder**, otherwise it's listed as "not checked".
+
+Script errors and requests with no response count as failures too. The result is the **"Collection run"** section of every sync PR: its heading says `✅ passed` or `❌ N failed`, followed by a per-request table (expected vs. actual code).
+
+> **Before merging a sync PR, check that heading.** A failed run marks the workflow red in **Chronost_App**'s Actions, but the sync PR here doesn't get a failing check. From 2026-09-14 to 2026-10-18 crashing scripts went unnoticed this way, and sync PR #13 was merged with them, partly because the old summary read "0 failed".
 
 To run the whole collection at once, use the **Collection Runner** (the ▶ button next to the collection).
 
