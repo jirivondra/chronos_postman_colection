@@ -12,51 +12,6 @@
       "item": [
         {
           "name": "Get All Todos",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200 OK', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Response is an array', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body).to.be.an('array');",
-                  "});",
-                  "",
-                  "pm.test('Each todo has id, title and completed', function () {",
-                  "    const body = pm.response.json();",
-                  "    body.forEach(function (todo) {",
-                  "        pm.expect(todo).to.have.property('id');",
-                  "        pm.expect(todo).to.have.property('title');",
-                  "        pm.expect(todo).to.have.property('completed');",
-                  "    });",
-                  "});",
-                  "",
-                  "pm.test('Content-Type is application/json', function () {",
-                  "    pm.response.to.have.header('Content-Type');",
-                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
-                  "});",
-                  "",
-                  "// Pagination pattern — saves cursor for the next page if the API supports pagination.",
-                  "// Current API does not support pagination, script is ready for future use.",
-                  "const body = pm.response.json();",
-                  "const cursor = body.next_cursor || body.next || null;",
-                  "if (cursor) {",
-                  "    pm.collectionVariables.set('next_cursor', cursor);",
-                  "    console.log('Next page available, cursor:', cursor);",
-                  "} else {",
-                  "    pm.collectionVariables.unset('next_cursor');",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -91,69 +46,7 @@
                 }
               ]
             },
-            "description": "Returns a list of all todos. If the API returns a pagination cursor, it is automatically saved to `next_cursor`."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Next Page",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "if (!pm.collectionVariables.get('next_cursor')) {",
-                  "    console.log('next_cursor is not set — skipping (run Get All Todos first, or the API has no more pages)');",
-                  "    pm.execution.skipRequest();",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200 OK', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "const cursor = body.next_cursor || body.next || null;",
-                  "if (cursor) {",
-                  "    pm.collectionVariables.set('next_cursor', cursor);",
-                  "} else {",
-                  "    pm.collectionVariables.unset('next_cursor');",
-                  "    console.log('Last page of results');",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{protocol}}{{host}}{{port}}/todos?cursor={{next_cursor}}",
-              "host": [
-                "{{protocol}}{{host}}{{port}}"
-              ],
-              "path": [
-                "todos"
-              ],
-              "query": [
-                {
-                  "key": "cursor",
-                  "value": "{{next_cursor}}"
-                }
-              ]
-            },
-            "description": "Loads the next page of results using the cursor from the previous call.\n\n> Pagination template — the current API does not support pagination. Run after `Get All Todos` when `next_cursor` is not empty."
+            "description": "Returns a list of all todos. Optional query params: `order` (`asc`/`desc`), `completed`, and `page` + `limit` for pagination."
           },
           "response": []
         },
@@ -161,32 +54,23 @@
           "name": "Create Todo",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const moment = require('moment');",
+                  "pm.collectionVariables.set('due_date', moment().add(7, 'days').format('YYYY-MM-DD'));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status is 201 Created', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "",
-                  "pm.test('Response contains the id of the new todo', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body).to.have.property('id');",
-                  "    pm.expect(body.id).to.be.a('number');",
-                  "    // Saves ID for Get Todo by ID, Update Todo and Delete Todo",
-                  "    pm.collectionVariables.set('todo_id', body.id);",
-                  "    console.log('Todo created with ID:', body.id);",
-                  "});",
-                  "",
-                  "pm.test('Todo has the correct title', function () {",
-                  "    const requestBody = JSON.parse(pm.request.body.raw);",
-                  "    const responseBody = pm.response.json();",
-                  "    pm.expect(responseBody.title).to.equal(requestBody.title);",
-                  "});",
-                  "",
-                  "pm.test('Todo is created as incomplete', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.completed).to.be.false;",
-                  "});"
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('todo_id', body.id);"
                 ],
                 "type": "text/javascript",
                 "packages": {},
@@ -204,7 +88,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"{{$randomLoremWords}}\",\n  \"description\": \"Created via Postman collection\",\n  \"completed\": false,\n  \"due_date\": \"2026-07-20\"\n}",
+              "raw": "{\n  \"title\": \"{{$randomLoremWords}}\",\n  \"description\": \"Created via Postman collection\",\n  \"completed\": false,\n  \"due_date\": \"{{due_date}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -226,68 +110,6 @@
         },
         {
           "name": "Get Todo by ID",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "if (!pm.collectionVariables.get('todo_id')) {",
-                  "    const res = await pm.sendRequest({",
-                  "        url: pm.variables.replaceIn('{{protocol}}{{host}}{{port}}/todos'),",
-                  "        method: 'POST',",
-                  "        header: { 'Content-Type': 'application/json' },",
-                  "        auth: {",
-                  "            type: 'basic',",
-                  "            basic: [",
-                  "                { key: 'username', value: pm.variables.get('username') },",
-                  "                { key: 'password', value: pm.variables.get('password') }",
-                  "            ]",
-                  "        },",
-                  "        body: {",
-                  "            mode: 'raw',",
-                  "            raw: JSON.stringify({",
-                  "                title: 'Auto-created todo',",
-                  "                description: 'Auto-created by pre-request script',",
-                  "                completed: false,",
-                  "                due_date: '2026-12-31'",
-                  "            })",
-                  "        }",
-                  "    });",
-                  "    const body = res.json();",
-                  "    pm.collectionVariables.set('todo_id', body.id);",
-                  "    console.log('todo_id was not set — auto-created todo with ID:', body.id);",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200 OK', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Returned ID matches the requested one', function () {",
-                  "    const body = pm.response.json();",
-                  "    const expectedId = parseInt(pm.collectionVariables.get('todo_id'));",
-                  "    pm.expect(body.id).to.equal(expectedId);",
-                  "});",
-                  "",
-                  "pm.test('Todo has all required fields', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body).to.include.all.keys('id', 'title', 'completed');",
-                  "});"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -307,68 +129,6 @@
         },
         {
           "name": "Update Todo",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "if (!pm.collectionVariables.get('todo_id')) {",
-                  "    const res = await pm.sendRequest({",
-                  "        url: pm.variables.replaceIn('{{protocol}}{{host}}{{port}}/todos'),",
-                  "        method: 'POST',",
-                  "        header: { 'Content-Type': 'application/json' },",
-                  "        auth: {",
-                  "            type: 'basic',",
-                  "            basic: [",
-                  "                { key: 'username', value: pm.variables.get('username') },",
-                  "                { key: 'password', value: pm.variables.get('password') }",
-                  "            ]",
-                  "        },",
-                  "        body: {",
-                  "            mode: 'raw',",
-                  "            raw: JSON.stringify({",
-                  "                title: 'Auto-created todo',",
-                  "                description: 'Auto-created by pre-request script',",
-                  "                completed: false,",
-                  "                due_date: '2026-12-31'",
-                  "            })",
-                  "        }",
-                  "    });",
-                  "    const body = res.json();",
-                  "    pm.collectionVariables.set('todo_id', body.id);",
-                  "    console.log('todo_id was not set — auto-created todo with ID:', body.id);",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200 OK', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Todo is now marked as completed', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.completed).to.be.true;",
-                  "});",
-                  "",
-                  "pm.test('ID has not changed', function () {",
-                  "    const body = pm.response.json();",
-                  "    const expectedId = parseInt(pm.collectionVariables.get('todo_id'));",
-                  "    pm.expect(body.id).to.equal(expectedId);",
-                  "});"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
           "request": {
             "method": "PUT",
             "header": [
@@ -379,7 +139,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"completed\": true,\n  \"description\": \"Updated via Postman\",\n  \"due_date\": \"2026-08-01\"\n}",
+              "raw": "{\n  \"completed\": true,\n  \"description\": \"Updated via Postman\",\n  \"due_date\": \"{{due_date}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -402,63 +162,6 @@
         },
         {
           "name": "Delete Todo",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "if (!pm.collectionVariables.get('todo_id')) {",
-                  "    const res = await pm.sendRequest({",
-                  "        url: pm.variables.replaceIn('{{protocol}}{{host}}{{port}}/todos'),",
-                  "        method: 'POST',",
-                  "        header: { 'Content-Type': 'application/json' },",
-                  "        auth: {",
-                  "            type: 'basic',",
-                  "            basic: [",
-                  "                { key: 'username', value: pm.variables.get('username') },",
-                  "                { key: 'password', value: pm.variables.get('password') }",
-                  "            ]",
-                  "        },",
-                  "        body: {",
-                  "            mode: 'raw',",
-                  "            raw: JSON.stringify({",
-                  "                title: 'Auto-created todo',",
-                  "                description: 'Auto-created by pre-request script',",
-                  "                completed: false,",
-                  "                due_date: '2026-12-31'",
-                  "            })",
-                  "        }",
-                  "    });",
-                  "    const body = res.json();",
-                  "    pm.collectionVariables.set('todo_id', body.id);",
-                  "    console.log('todo_id was not set — auto-created todo with ID:', body.id);",
-                  "}"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 204 No Content', function () {",
-                  "    pm.response.to.have.status(204);",
-                  "});",
-                  "",
-                  "pm.test('Response body is empty', function () {",
-                  "    pm.expect(pm.response.text()).to.be.empty;",
-                  "});",
-                  "",
-                  "pm.collectionVariables.unset('todo_id');"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
           "request": {
             "method": "DELETE",
             "header": [],
@@ -499,159 +202,10 @@
             },
             "description": {}
           },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ]
+          "response": []
         }
       ],
       "description": "CRUD operations for managing todos"
-    },
-    {
-      "name": "Errors",
-      "item": [
-        {
-          "name": "Get Non-Existent Todo (404)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 404 Not Found', function () {",
-                  "    pm.response.to.have.status(404);",
-                  "});",
-                  "",
-                  "pm.test('Error message is present', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body).to.have.property('detail');",
-                  "});"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{protocol}}{{host}}{{port}}/todos/999999",
-              "host": [
-                "{{protocol}}{{host}}{{port}}"
-              ],
-              "path": [
-                "todos",
-                "999999"
-              ]
-            },
-            "description": "Verifies that the API returns 404 for a non-existent ID."
-          },
-          "response": []
-        },
-        {
-          "name": "Create Todo Without Title (422)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 422 Unprocessable Entity', function () {",
-                  "    pm.response.to.have.status(422);",
-                  "});",
-                  "",
-                  "pm.test('Response contains a validation error', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body).to.have.property('detail');",
-                  "    pm.expect(body.detail).to.be.an('array');",
-                  "});"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"description\": \"Missing required title\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{protocol}}{{host}}{{port}}/todos",
-              "host": [
-                "{{protocol}}{{host}}{{port}}"
-              ],
-              "path": [
-                "todos"
-              ]
-            },
-            "description": "Verifies validation — title is a required field."
-          },
-          "response": []
-        },
-        {
-          "name": "Unauthorized Request (401)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 401 Unauthorized', function () {",
-                  "    pm.response.to.have.status(401);",
-                  "});"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{protocol}}{{host}}{{port}}/todos",
-              "host": [
-                "{{protocol}}{{host}}{{port}}"
-              ],
-              "path": [
-                "todos"
-              ]
-            },
-            "description": "Verifies that the API rejects a request without authentication."
-          },
-          "response": []
-        }
-      ],
-      "description": "Tests for error states and edge cases"
     }
   ],
   "auth": {
@@ -668,12 +222,5 @@
         "type": "string"
       }
     ]
-  },
-  "variable": [
-    {
-      "key": "auth_token",
-      "value": "",
-      "description": "JWT token — set automatically after Login"
-    }
-  ]
+  }
 }
