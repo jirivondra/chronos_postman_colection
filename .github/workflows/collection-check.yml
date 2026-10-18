@@ -1,0 +1,78 @@
+name: Collection Check
+
+# Runs the collection against a live API (built from Chronost_App's main branch) and checks that
+# every request works: success status code from the OpenAPI spec, JSON body, intact variable chain.
+# Runs on every PR here — including the sync PRs Chronost_App opens — so a broken collection shows
+# up as a failing check right on the PR that would merge it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  collection-check:
+    name: Postman collection run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Must match the credentials in environments/local.postman_environment.json.
+      API_USERNAME: admin
+      API_PASSWORD: secret
+
+    steps:
+      - name: Checkout collection
+        uses: actions/checkout@v4
+
+      - name: Checkout API (Chronost_App)
+        uses: actions/checkout@v4
+        with:
+          repository: jirivondra/chronost_app
+          path: app
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install API dependencies
+        run: pip install -r app/api/requirements.txt
+
+      - name: Export OpenAPI spec
+        run: python app/api/export_openapi.py > openapi.json
+
+      - name: Start API
+        working-directory: app
+        run: uvicorn api.main:app --host 0.0.0.0 --port 8000 &
+
+      - name: Wait for API
+        run: |
+          timeout 30 bash -c \
+            'until curl -sf -u "$API_USERNAME:$API_PASSWORD" http://localhost:8000/todos > /dev/null; do sleep 1; done'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The collection has no assertions, so newman itself only fails on script errors — the
+      # actual checks happen in the next step.
+      - name: Run collection with newman
+        continue-on-error: true
+        run: |
+          npx --yes newman@6.2.1 run collections/todo-app.postman_collection.json \
+            -e environments/local.postman_environment.json \
+            --reporters cli,json \
+            --reporter-json-export newman-results.json
+
+      - name: Check collection run
+        run: |
+          node ci/check-collection.mjs \
+            --results newman-results.json \
+            --spec openapi.json \
+            --manifest sync-manifest.json \
+            --out collection-summary.md
+
+      - name: Publish summary
+        if: ${{ !cancelled() }}
+        run: '[ -f collection-summary.md ] && cat collection-summary.md >> "$GITHUB_STEP_SUMMARY" || true'
