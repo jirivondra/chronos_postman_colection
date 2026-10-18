@@ -1,16 +1,13 @@
+export const prerequest = `
+// due_date = today + 7 days (YYYY-MM-DD), reused by Create Todo and Update Todo bodies.
+// moment is built into the Postman sandbox (dayjs is not, and pm.require doesn't work in newman).
+const moment = require('moment');
+pm.collectionVariables.set('due_date', moment().add(7, 'days').format('YYYY-MM-DD'));
+`
+
 export const test = `
-pm.test('Status is 201 Created', function () {
-    pm.response.to.have.status(201);
-});
-
+// Saves the new todo's ID — Get Todo by ID, Update Todo and Delete Todo read it via {{todo_id}} in their URL.
 const body = pm.response.json();
-
-pm.test('Response contains a numeric id', function () {
-    pm.expect(body.id).to.be.a('number');
-});
-
-// Saves ID for Get Todo by ID, Update Todo and Delete Todo.
-// Kept outside pm.test so a failing assertion elsewhere can't skip it.
 if (typeof body.id === 'number') {
     pm.collectionVariables.set('todo_id', body.id);
     console.log('Todo created with ID:', body.id);

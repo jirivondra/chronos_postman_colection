@@ -1,10 +1,5 @@
 export const test = `
-pm.test('Status is 200 OK', function () {
-    pm.response.to.have.status(200);
-});
-
-// Pagination pattern — saves cursor for the next page if the API supports pagination.
-// Current API does not support pagination, script is ready for future use.
+// Saves the cursor for Get Next Page, if the response provides one.
 const body = pm.response.json();
 const cursor = body.next_cursor || body.next || null;
 if (cursor) {

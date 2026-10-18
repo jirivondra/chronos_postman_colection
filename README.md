@@ -15,7 +15,7 @@ collections/
 environments/
   local.postman_environment.json     ← local environment (localhost:8000)
 scripts/
-  <method>_<path>.js                 ← hand-written pre-request/test scripts, one file per endpoint
+  <method>_<path>.js                 ← hand-written scripts that pass values between requests (only for endpoints that need one)
 sync-manifest.json                   ← maps each endpoint key to the request name it syncs into
 ```
 
@@ -76,18 +76,18 @@ The sync never touches `header`, `body`, or the request's test/pre-request scrip
 **Always manually review a sync PR before merging it, even when the checklist says "nothing to review."** The checklist only catches endpoints with no request or no script wired up — it doesn't verify the request still behaves correctly. Before merging:
 
 1. Check the diff — confirm the changed method/URL actually matches the intended API change
-2. Run the collection (Collection Runner) against a local instance of the API and confirm the requests and their tests still pass
+2. Run the collection (Collection Runner) against a local instance of the API and confirm the requests still return the expected responses
 3. If the API change added/removed a field, update the request `body` by hand — the sync deliberately never touches it
 
 To change a script:
 
-1. Edit the matching file in `scripts/<method>_<path>.js` (e.g. `scripts/get_todos_id.js`), exporting `prerequest` and/or `test` as template-literal strings
+1. Edit the matching file in `scripts/<method>_<path>.js` (e.g. `scripts/post_todos.js`), exporting `prerequest` and/or `test` as template-literal strings
 2. Commit and push — the next sync PR will pick it up
 
 A brand-new endpoint needs no manual setup — the moment it appears in the spec, the sync PR already includes a new request (with a realistic example body) and a basic status-code test in `scripts/<key>.js`, wired up in `sync-manifest.json`. After merging that PR:
 
 1. Move the auto-created request to a different folder if `Todos` isn't the right place for it
-2. Expand `scripts/<key>.js` beyond the basic status-code check, if useful
+2. Delete the generated status-code test from `scripts/<key>.js` (see [Scripts](#scripts) — this collection holds no tests). Keep the file only if the endpoint produces a value other requests should reuse; the sync checklist will then list the endpoint as having no script, which is expected
 3. From then on it stays in sync automatically, exactly like every other endpoint
 
 Everything else not covered by the automated sync (environment values, new folders, error-scenario requests) is still exported and committed manually:
@@ -119,12 +119,27 @@ Default credentials for the local environment: `admin` / `secret`
 
 ## Request Chaining
 
-The collection is designed to be run in the following order:
+`Create Todo` is the starting point — it creates a todo and stores its values in collection variables. Every other request reads them through `{{variable}}` placeholders in its URL or body, which Postman fills in automatically when you click **Send**. No script is needed on the reading side.
 
-1. **Create Todo** → automatically saves `todo_id` to a collection variable
-2. **Get Todo by ID** → uses `todo_id`
-3. **Update Todo** → uses `todo_id`
-4. **Delete Todo** → uses `todo_id` and then clears it
+| Variable | Set by | How | Used by |
+|----------|--------|-----|---------|
+| `due_date` | `Create Todo` (pre-request) | today + 7 days, `YYYY-MM-DD` | `Create Todo` body, `Update Todo` body |
+| `todo_id` | `Create Todo` (post-response) | `id` of the todo just created | URL of `Get Todo by ID`, `Update Todo`, `Delete Todo` |
+| `next_cursor` | `Get All Todos`, `Get Next Page` (post-response) | `next_cursor` / `next` from the response, if present | `cursor` param of `Get Next Page` |
+
+Typical manual flow:
+
+1. **Create Todo** → `todo_id` now points to the new todo
+2. **Get Todo by ID** / **Update Todo** / **Delete Todo** → all target that todo, in any order
+3. **Create Todo** again → `todo_id` is overwritten, subsequent requests target the new todo
+
+Notes:
+
+- Calling `Get` / `Update` / `Delete` before any `Create Todo` sends an unresolved `{{todo_id}}` and fails — create a todo first.
+- `Delete Todo` doesn't clear `todo_id`. Calling `Get Todo by ID` afterwards returns `404` for the deleted todo, which is the expected, readable result.
+- To check the current value of a variable, hover over `{{todo_id}}` in the URL, or open the collection's **Variables** tab.
+- `due_date` is generated with `moment`, which is built into the Postman sandbox. `dayjs` isn't, and `pm.require('npm:...')` doesn't work in `newman` (which the sync pipeline uses), so don't switch to it.
+- A due date of +7 days falls inside the Dashboard's "Upcoming" window (today … today + 7). Delete todos you no longer need, so they don't skew the Playwright Dashboard tests running against the same backend.
 
 ## Query Parameters Without Example Data
 
@@ -132,18 +147,15 @@ Some query parameters (e.g. `cursor` on `Get Next Page`) only get a real value a
 
 This keeps the parameter discoverable in the Params tab and out of the request's raw URL, instead of showing up as a broken/red variable reference before the collection has been run. Once the variable that feeds it is actually set (e.g. after running `Get All Todos`), re-enable the parameter manually to use it.
 
-## Tests
+## Scripts
 
-The scripts in this collection are **not** API tests — those live in [Chronos_App_Api_Testing](https://github.com/jirivondra/Chronos_App_Api_Testing) (Mocha). Response shape, field values, headers and negative scenarios are covered there and must not be duplicated here.
+This collection is for **manual calls only**. Its scripts do exactly one thing: **pass values from one request to the next** (see [Request Chaining](#request-chaining)). There are no `pm.test` assertions anywhere — not even status codes, and not in the `Errors` folder.
 
-The scripts here only check that the **collection itself is usable** — which is exactly what the `newman` run in the sync pipeline verifies after every regeneration:
+API testing (status codes, response shape, field values, schemas, negative scenarios) lives in [Chronos_App_Api_Testing](https://github.com/jirivondra/Chronos_App_Api_Testing) (Mocha) and must not be duplicated here.
 
-- the expected HTTP status code (the request's URL, method, auth and body are still correct)
-- whatever the request chain depends on: `Create Todo` returns a numeric `id` and saves it as `todo_id`; `Get Todo by ID` / `Update Todo` return that same `id`
+Before adding a script, ask: *"does it store a value that another request reads via `{{variable}}`?"* If not, it doesn't belong in this collection.
 
-The **Errors** folder keeps its status checks for the same reason — it verifies those hand-built error requests still trigger the intended `404` / `422` / `401`.
-
-When adding a script, ask: "would this request become unusable for manual testing if the check failed?" If not, the check belongs in the Mocha repository instead.
+> **Known gap:** the `newman` run in the sync pipeline only fails on script errors or connection problems now — a request returning an unexpected status code no longer fails it. Moving the status-code check into the pipeline itself (comparing newman's reported codes against the OpenAPI spec) is a planned change in Chronost_App.
 
 To run the whole collection at once, use the **Collection Runner** (the ▶ button next to the collection).
 
