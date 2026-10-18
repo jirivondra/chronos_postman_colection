@@ -5,7 +5,7 @@ This repository stores Postman collections for the Todo App API. The collections
 Since this repository is used only for manual testing, there is no need for a paid Postman subscription. All changes to collections are made in the free version of Postman and synced to the repository via export and commit.
 
 > Automated API tests are maintained in a separate repository:
-> [Chronos_App_Api_Testing](https://github.com/jirivondra/Chronos_App_Api_Testing)
+> [chronos_mocha_rest_soap_testing](https://github.com/jirivondra/chronos_mocha_rest_soap_testing)
 
 ## Repository Structure
 
@@ -144,11 +144,32 @@ Notes:
 
 This collection is for **manual calls only**. Its scripts do exactly one thing: **pass values from one request to the next** (see [Request Chaining](#request-chaining)). There are no `pm.test` assertions anywhere — not even status codes, and not in the `Errors` folder.
 
-API testing (status codes, response shape, field values, schemas, negative scenarios) lives in [Chronos_App_Api_Testing](https://github.com/jirivondra/Chronos_App_Api_Testing) (Mocha) and must not be duplicated here.
+API testing (status codes, response shape, field values, schemas, negative scenarios) lives in [chronos_mocha_rest_soap_testing](https://github.com/jirivondra/chronos_mocha_rest_soap_testing) (Mocha) and must not be duplicated here.
 
 Before adding a script, ask: *"does it store a value that another request reads via `{{variable}}`?"* If not, it doesn't belong in this collection.
 
-> **Known gap:** the `newman` run in the sync pipeline only fails on script errors or connection problems now — a request returning an unexpected status code no longer fails it. Moving the status-code check into the pipeline itself (comparing newman's reported codes against the OpenAPI spec) is a planned change in Chronost_App.
+## Newman vs. Mocha — What Each One Checks
+
+Two separate test runs in [Chronost_App](https://github.com/jirivondra/Chronost_App) CI touch the API. They answer different questions and **neither can replace the other**:
+
+| | **Newman** (`postman-sync.yml`) | **Mocha** (`playwright.yml`, job *API regression*) |
+| --- | --- | --- |
+| Question it answers | "Is **this Postman collection** usable?" | "Does **the API** work correctly?" |
+| What it runs | The requests stored in `collections/todo-app.postman_collection.json` | Its own requests, written in TypeScript in [chronos_mocha_rest_soap_testing](https://github.com/jirivondra/chronos_mocha_rest_soap_testing) (`npm run test:regression`) |
+| Catches | Broken URL/body in the collection, a crashing script, a broken `todo_id` chain | Wrong status codes (incl. 401/404/422), wrong response shape (JSON Schema via `expectJsonSchema`), broken filters/pagination |
+| Misses | API bugs — it has no assertions, so it doesn't check **HTTP status codes** or response content | Anything broken in the Postman collection — it never uses it |
+
+Examples:
+
+- **API breaks** (e.g. `POST /todos` starts returning `500`) → Mocha fails. Newman still passes: the request was sent and the script ran.
+- **Collection breaks** (e.g. a pre-request script crashes in newman, as `await` did in the old auto-create scripts) → Newman fails. Mocha still passes: the API itself is fine.
+
+In short: newman tests the **tool**, Mocha tests the **product**.
+
+> **Known gaps in the newman run:**
+>
+> - **No HTTP status checks.** Since this collection has no `pm.test` assertions, a request returning `404`/`500` (e.g. due to a wrong URL after a sync) does not fail the run — only script errors and connection problems do. Planned fix: compare newman's reported status codes against the OpenAPI spec in Chronost_App's `summarize-newman.js`.
+> - **Failures are easy to miss.** A failed run marks the workflow red in **Chronost_App**'s Actions, but the sync PR here shows no failing check — only a "Collection run" section in its body, whose first line counts *assertion* failures only (it said "0 failed" while listing three crashing scripts). Read the whole section, not just the first line, before merging. This went unnoticed from 2026-09-14 until 2026-10-18 and sync PR #13 was merged with it.
 
 To run the whole collection at once, use the **Collection Runner** (the ▶ button next to the collection).
 
